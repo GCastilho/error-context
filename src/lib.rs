@@ -334,7 +334,7 @@ macro_rules! impl_context {
             }
         }
 
-        impl<Z, E: Into<$out>> Context<$out, Z, E> for Result<Z, E> {
+        impl<Z, E: Into<$out>> Context<$out, Z> for Result<Z, E> {
             fn context<C>(self, context: C) -> Result<Z, $out>
             where
                 C: std::fmt::Display + Send + Sync + 'static,
@@ -371,10 +371,7 @@ macro_rules! impl_context {
     };
 }
 
-pub trait Context<W, T, E>
-where
-    E: Into<W>,
-{
+pub trait Context<W, T> {
     /// Wrap the error value with additional context.
     fn context<C>(self, context: C) -> Result<T, W>
     where
@@ -457,12 +454,14 @@ mod tests {
         }
         impl_context!(AnotherDummyError(AnotherDummyErrorInner));
         fn v() -> Result<(), AnotherDummyError> {
-            let _: i64 = "fake".parse()?;
+            let _: i64 = "fake"
+                .parse::<i64>()
+                // .map_err(DummyError::from) // <-- Uncomenting this causes `?` could not convert error type `DummyError` to `AnotherDummyError`
+                // .map_err(AnotherDummyError::from) // <-- Uncomenting this makes it compile
+                .context("Adding context shouldn't cause build error")?;
             Ok(())
         }
-        assert!(v()
-            .context("Adding context shouldn't cause build error")
-            .is_err());
+        assert!(v().is_err());
     }
 }
 
